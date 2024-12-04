@@ -2,16 +2,40 @@ import torch
 from dataclasses import dataclass
 import torch.nn as nn
 from torch.nn import functional as F
+import math
 
 
 @dataclass
 class GPTConfig:
-	block_size: int = 256
-	vocab_size: int = 65
+	block_size: int = 1024
+	vocab_size: int = 50257
 	n_layer: int = 12
-	n_head: int = 8
-	n_embd: int = 512
-	
+	n_head: int = 12
+	n_embd: int = 768
+ 
+ 
+class SelfAttention(nn.Module):
+  def __init__(self, config: GPTConfig):
+    super().__init__()
+    assert config.n_embd % config.n_head == 0
+    self.c_attn = nn.Linear(config.n_embd, config.n_embd*3)
+    self.c_proj = nn.Linear(config.n_embd, config.n_embd)
+    self.n_head = config.n_head
+    self.n_embd = config.n_embd
+    self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size)).view(1, 1, config.block_size, config.block_size))
+			
+  def forward(self, x):
+    B, T, C = x.size()
+    qkv = self.c_attn(x)
+    q, k, v = qkv.split(self.n_embd, dim=2)
+    k = k.view(B, T, self.n_head, C //self.n_head).transpose(1, 2)
+    q = q.view(B, T, self.n_head, C //self.n_head).transpose(1, 2)
+    v = v.view(B, T, self.n_head, C //self.n_head).transpose(1, 2)
+    att = (q @ k.transpose(-2, -1)) * (1/math.sqrt(k.size(-1)))
+    att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float('-inf'))
+    att = F.softmax(att, dim=-1)
+    y = att @ v
+    y = y.transpose(1, 2).contiguous().view(B, T, C)
 
 
 class Block(nn.Module):
@@ -26,6 +50,17 @@ class Block(nn.Module):
 		x = x + self.attn(self.ln_1(x))
 		x = x + self.mlp(self.ln_2(x))
 		return x
+
+
+class MLP(nn.Module):
+	def __init__(self, config: GPTConfig):
+		super().__init__()
+		self.c_fc = nn.Linear(config.n_embd, config.n_embd*4)
+		self.c_proj = nn.Linear(config.n_embd*4, config.n_embd)
+		self.gelu = nn.GELU(approximate='tanh')
+
+	def forward(self, x):
+		return self.c_proj(self.act(self.c_fc(x)))
 
     
 class GPT(nn.Module):
