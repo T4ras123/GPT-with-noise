@@ -4,7 +4,6 @@ import torch.nn as nn
 from torch.nn import functional as F
 import math
 
-
 @dataclass
 class GPTConfig:
 	block_size: int = 1024
@@ -12,8 +11,7 @@ class GPTConfig:
 	n_layer: int = 12
 	n_head: int = 12
 	n_embd: int = 768
- 
- 
+
 class SelfAttention(nn.Module):
   def __init__(self, config: GPTConfig):
     super().__init__()
@@ -23,7 +21,7 @@ class SelfAttention(nn.Module):
     self.n_head = config.n_head
     self.n_embd = config.n_embd
     self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size)).view(1, 1, config.block_size, config.block_size))
-			
+
   def forward(self, x):
     B, T, C = x.size()
     qkv = self.c_attn(x)
@@ -57,21 +55,18 @@ class MLP(nn.Module):
 		super().__init__()
 		self.c_fc = nn.Linear(config.n_embd, config.n_embd*4)
 		self.c_proj = nn.Linear(config.n_embd*4, config.n_embd)
-		self.gelu = nn.GELU(approximate='tanh')
+		self.gelu = nn.GELU()
 
 	def forward(self, x):
 		return self.c_proj(self.act(self.c_fc(x)))
 
-    
+
 class GPT(nn.Module):
 	def __init__(self, config: GPTConfig):
 		self.config = config
 		self.transformer = nn.ModuleDict(dict(
 			wte = nn.Embedding(config.vocab_size, config.n_embd),
 			wpe = nn.Embedding(config.block_size, config.n_embd),
-			h = nn.ModuleList([Block() for _ in range(config.n_layer)]),
 			h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
 		))
 		self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
-		
-
