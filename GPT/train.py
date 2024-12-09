@@ -116,7 +116,7 @@ while x.size(1) < max_len:
         topk_probs, topk_indices = torch.topk(probs, 5, dim=-1)
         ix = torch.multinomial(topk_probs, 1)
         xcol = topk_indices.gather(1, ix)
-        x = toch.cat([x, xcol], dim=1)
+        x = torch.cat([x, xcol], dim=1)
         
         
 for i in range(num_return_sequences):
