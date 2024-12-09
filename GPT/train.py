@@ -106,3 +106,18 @@ tokens = enc.encode('Hello, i\'m a language model,')
 tokens = torch.tensor(tokens, dtype=torch.long, device=device)
 tokens = torch.unsqueeze(tokens, 0).repeat(num_return_sequences, 1)
 x = tokens.to(device)
+
+
+while x.size(1) < max_len:
+    with torch.no_grad():
+        logits = model(x)
+        logits = logits[:, -1, :]
+        probs = F.softmax(logits, dim=-1)
+        topk_probs, topk_indices = torch.topk(probs, 5, dim=-1)
+        ix = torch.multinomial(topk_probs, 1)
+        xcol = topk_indices.gather(1, ix)
+        x = toch.cat([x, xcol], dim=1)
+        
+        
+for i in range(num_return_sequences):
+    print(f"Sample {i+1}: {enc.decode(x[i].tolist())}")
