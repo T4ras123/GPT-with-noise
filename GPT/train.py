@@ -70,19 +70,39 @@ class GPT(nn.Module):
             wte = nn.Embedding(config.vocab_size, config.n_embd),
             wpe = nn.Embedding(config.block_size, config.n_embd),
             h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
+            ln_f = nn.LayerNorm(config.n_embd)
         ))
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        pos = torch.arange(0, x.size(1), dtype=torch.long, device=x.device)
-        x = self.transformer['wte'](x) + self.transformer['wpe'](pos)
+    def forward(self, idx):
+        B, T = idx.size()
+        assert T <= self.config.block_size 
+        pos = torch.arange(T, dtype=torch.long, device=idx.device)
+        pos_emb = self.transformer['wpe'](pos)
+        tok_emb = self.transformer['wte'](idx)
+        x = pos_emb + tok_emb
         for block in self.transformer['h']:
             x = block(x)
-        return self.lm_head(x)
-
+        x = self.transformer['ln_f'](x)
+        logits = self.lm_head(x)
+        return logits
+  
     def generate(self, x: torch.Tensor, max_len: int = 100) -> torch.Tensor:
         for _ in range(max_len):
             logits = self(x[:, -self.config.block_size:])
             next_token = logits[:, -1].argmax(dim=-1, keepdim=True)
             x = torch.cat([x, next_token], dim=1)
         return x
+
+
+num_return_sequences = 5
+max_len = 100
+config = GPTConfig()
+model = GPT(config).to(device)
+
+import tiktoken
+enc = tiktoken.get_encoding('gpt2')
+tokens = enc.encode('Hello, i\'m a language model,')
+tokens = torch.tensor(tokens, dtype=torch.long, device=device)
+tokens = torch.unsqueeze(tokens, 0).repeat(num_return_sequences, 1)
+x = tokens.to(device)
