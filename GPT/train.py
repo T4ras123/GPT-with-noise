@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import torch.nn as nn
 from torch.nn import functional as F
 import math
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 @dataclass
 class GPTConfig:
@@ -70,3 +71,14 @@ class GPT(nn.Module):
 			h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
 		))
 		self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
+
+	def forward(self, x):
+	    x = self.transformer['wte'](x) + self.transformer['wpe'](torch.arange(x.size(1), device=x.device))
+        for block in self.transformer['h']:
+            x = block(x)
+        return self.lm_head(x)
+
+    def generate(self, x, max_len=100):
+        for _ in range(max_len):
+            x = torch.cat([x, self.lm_head(x).argmax(-1)], dim=-1)
+        return x
