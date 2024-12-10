@@ -167,9 +167,7 @@ if __name__ == "__main__":
     import time
     
     config = GPTConfig()
-    model = GPT(config).to(device)
-    model = torch.compile(model)
-    
+    model = GPT(config).to(device)    
     train_loader = DataLoaderLite(config.batch_size, config.block_size)
 
     model_dict_path = os.path.join(os.path.dirname(__file__), "model.ptl")
@@ -181,7 +179,7 @@ if __name__ == "__main__":
         t0 = time.time()
         x, y = train_loader.next_batch()
         x, y = x.to(device), y.to(device)
-        with autocast("cuda", dtype=torch.float16):
+        with autocast("cuda", dtype=torch.bfloat16):
             logits, loss = model(x, y)
         loss.backward()
         optimizer.step()
