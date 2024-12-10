@@ -164,6 +164,7 @@ if __name__ == "__main__":
 
     from torch.amp import autocast
     from torch.amp import GradScaler
+    import time
 
     scaler = GradScaler("cuda")
 
@@ -176,13 +177,19 @@ if __name__ == "__main__":
     optimizer = torch.optim.AdamW(model.parameters(), lr=6e-4)
 
     for i in range(100):
+
+        t0 = time.time()
         x, y = train_loader.next_batch()
         x, y = x.to(device), y.to(device)
-        with autocast():
+        with autocast("cuda"):
             logits, loss = model(x, y)
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
+        t1 = time.time()
+        torch.cuda.syncronize()
+        print(f"Epoch {i} took {t1 - t0} seconds")
+
         if i % 10 == 0:
     
             print(loss.item())
