@@ -13,11 +13,12 @@ def get_batches():
 
 @dataclass
 class GPTConfig:
-	block_size: int = 1024
-	vocab_size: int = 50257
-	n_layer: int = 12
-	n_head: int = 12
-	n_embd: int = 768
+    block_size: int = 1024
+    vocab_size: int = 50257
+    n_layer: int = 12
+    n_head: int = 12
+    n_embd: int = 768
+    batch_size: int = 4
 
 
 class SelfAttention(nn.Module):
@@ -121,7 +122,7 @@ class DataLoaderLite:
         with open(data_path, 'r') as f:
             data = f.read()
         enc = tiktoken.get_encoding('gpt2')
-        tokens = enc.encode(data)
+        tokens = enc.encode(data, allowed_special={"<|endoftext|>"})
         self.tokens = torch.tensor(tokens, dtype=torch.long)
 
         print(f"Total tokens: {len(self.tokens)}")
@@ -141,17 +142,27 @@ class DataLoaderLite:
 
         return x, y 
         
+if __name__ == "__main__":
 
-config = GPTConfig()
-model = GPT(config).to(device)
+    config = GPTConfig()
+    model = GPT(config).to(device)
+    train_loader = DataLoaderLite(config.batch_size, config.block_size)
 
-optimizer = torch.optim.AdamW(model.parameters(), lr=6e-4)
+    model_dict_path = os.path.join(os.path.dirname(__file__), "model.ptl")
 
-for i in range(100):
-    optimizer.zero_grad()
-    logits, loss = model(x, y)
-    loss.backward()
-    optimizer.step()
-    if i % 10 == 0:
+
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=6e-4)
+
+    for i in range(100):
+        x, y = train_loader.next_batch()
+        x, y = x.to(device), y.to(device)
+        optimizer.zero_grad()
+        logits, loss = model(x, y)
+        loss.backward()
+        optimizer.step()
+        if i % 10 == 0:
     
-        print(loss.item())
+            print(loss.item())
+
+    torch.save(model.state_dict(), model_dict_path)
