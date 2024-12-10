@@ -181,7 +181,7 @@ if __name__ == "__main__":
         t0 = time.time()
         x, y = train_loader.next_batch()
         x, y = x.to(device), y.to(device)
-        with autocast("cuda", dtype=torch.bfloat16):
+        with autocast("cuda", dtype=torch.float16):
             logits, loss = model(x, y)
         loss.backward()
         optimizer.step()
