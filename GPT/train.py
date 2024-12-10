@@ -4,12 +4,9 @@ import torch.nn as nn
 from torch.nn import functional as F
 import math
 import os
+import sys
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-data_path = os.path.join(os.path.dirname(__file__), 'data', 'TinyStories-train.txt')
-
-with open(data_path, 'r') as f:
-    data = f.read()
 
 def get_batches():
     pass
@@ -111,28 +108,50 @@ class GPT(nn.Module):
         return x
 
 
-num_return_sequences = 5
-max_len = 100
+import tiktoken
+
+
+class DataLoaderLite:
+    def __init__(self, B, T):
+        self.B = B
+        self.T = T
+
+        data_path = os.path.join(os.path.dirname(__file__), 'data', 'TinyStories-train.txt')
+
+        with open(data_path, 'r') as f:
+            data = f.read()
+        enc = tiktoken.get_encoding('gpt2')
+        tokens = enc.encode(data)
+        self.tokens = torch.tensor(tokens, dtype=torch.long)
+
+        print(f"Total tokens: {len(self.tokens)}")
+        print(f"1 epoch = {len(self.tokens) // (B * T)} batches")
+
+        self.current = 0
+
+    def next_batch(self):
+        B, T = self.B, self.T
+        buff = self.tokens[self.current:self.current + B * T + 1]
+        x = buff[:-1].view(B, T)
+        y = buff[1:].view(B, T)
+        self.current += B * T
+
+        if self.current + B * T + 1 >= len(self.tokens):
+            self.current = 0
+
+        return x, y 
+        
+
 config = GPTConfig()
 model = GPT(config).to(device)
 
-import tiktoken
-enc = tiktoken.get_encoding('gpt2')
-tokens = enc.encode(data)
-print(f"Number of tokens: {len(tokens)}")
-x = tokens.to(device)
+optimizer = torch.optim.AdamW(model.parameters(), lr=6e-4)
 
-
-while x.size(1) < max_len:
-    with torch.no_grad():
-        logits, loss = model(x, y)
-        logits = logits[:, -1, :]
-        probs = F.softmax(logits, dim=-1)
-        topk_probs, topk_indices = torch.topk(probs, 5, dim=-1)
-        ix = torch.multinomial(topk_probs, 1)
-        xcol = topk_indices.gather(1, ix)
-        x = torch.cat([x, xcol], dim=1)
-        
-        
-for i in range(num_return_sequences):
-    print(f"Sample {i+1}: {enc.decode(x[i].tolist())}")
+for i in range(100):
+    optimizer.zero_grad()
+    logits, loss = model(x, y)
+    loss.backward()
+    optimizer.step()
+    if i % 10 == 0:
+    
+        print(loss.item())
