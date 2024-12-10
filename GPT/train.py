@@ -150,7 +150,7 @@ if __name__ == "__main__":
 
     model_dict_path = os.path.join(os.path.dirname(__file__), "model.ptl")
 
-
+    torch.cuda.empty_cache()
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=6e-4)
 
