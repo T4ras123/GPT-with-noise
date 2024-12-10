@@ -163,8 +163,7 @@ class DataLoaderLite:
         
 if __name__ == "__main__":
 
-    from torch.amp import autocast
-    from torch.amp import GradScaler
+    from torch import autocast
     import time
     
     config = GPTConfig()
