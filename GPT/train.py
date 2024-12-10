@@ -18,7 +18,7 @@ class GPTConfig:
     n_layer: int = 12
     n_head: int = 12
     n_embd: int = 768
-    batch_size: int = 4
+    batch_size: int = 2 
 
 
 class SelfAttention(nn.Module):
@@ -143,6 +143,10 @@ class DataLoaderLite:
         return x, y 
         
 if __name__ == "__main__":
+    
+    from torch.cuda.amp import GradScaler, autocast
+
+    scaler = GradScaler()
 
     config = GPTConfig()
     model = GPT(config).to(device)
@@ -157,10 +161,14 @@ if __name__ == "__main__":
     for i in range(100):
         x, y = train_loader.next_batch()
         x, y = x.to(device), y.to(device)
+        
         optimizer.zero_grad()
-        logits, loss = model(x, y)
-        loss.backward()
-        optimizer.step()
+        with autocast():
+            logits, loss = model(x, y)
+                    
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
         if i % 10 == 0:
     
             print(loss.item())
