@@ -161,7 +161,7 @@ if __name__ == "__main__":
     from torch import autocast
     import time
     
-    config = GPTConfig()
+    config = GPTConfig(vocab_size=50304)
     model = GPT(config).to(device)    
     train_loader = DataLoaderLite(config.batch_size, config.block_size)
 
