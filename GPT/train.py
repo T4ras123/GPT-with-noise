@@ -144,9 +144,10 @@ class DataLoaderLite:
         
 if __name__ == "__main__":
     
-    from torch.cuda.amp import GradScaler, autocast
+    from torch import autocast
+    from torch.amp import GradScaler
 
-    scaler = GradScaler()
+    scaler = GradScaler("cuda")
 
     config = GPTConfig()
     model = GPT(config).to(device)
@@ -169,8 +170,8 @@ if __name__ == "__main__":
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
+        
         if i % 10 == 0:
-    
             print(loss.item())
 
     torch.save(model.state_dict(), model_dict_path)
