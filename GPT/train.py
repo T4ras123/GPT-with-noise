@@ -166,8 +166,6 @@ if __name__ == "__main__":
     from torch.amp import autocast
     from torch.amp import GradScaler
     import time
-
-    scaler = GradScaler("cuda")
     
     config = GPTConfig()
     model = GPT(config).to(device)
@@ -182,11 +180,10 @@ if __name__ == "__main__":
         t0 = time.time()
         x, y = train_loader.next_batch()
         x, y = x.to(device), y.to(device)
-        with autocast("cuda"):
+        with autocast(device, dtype=torch.bfloat16):
             logits, loss = model(x, y)
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        loss.backward()
+        optimizer.step()
         t1 = time.time()
         torch.cuda.synchronize()
         print(f"Epoch {i} took {(t1 - t0)*1000} ms")
