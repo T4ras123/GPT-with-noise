@@ -18,7 +18,7 @@ class GPTConfig:
     n_layer: int = 12
     n_head: int = 12
     n_embd: int = 768
-    batch_size: int = 4
+    batch_size: int = 8
 
 
 class SelfAttention(nn.Module):
