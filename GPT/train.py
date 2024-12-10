@@ -168,6 +168,8 @@ if __name__ == "__main__":
 
     scaler = GradScaler("cuda")
 
+    torch.set_float32_matmul_precision("high")
+    
     config = GPTConfig()
     model = GPT(config).to(device)
     train_loader = DataLoaderLite(config.batch_size, config.block_size)
@@ -188,7 +190,7 @@ if __name__ == "__main__":
         scaler.update()
         t1 = time.time()
         torch.cuda.synchronize()
-        print(f"Epoch {i} took {(t1 - t0)*1000} seconds")
+        print(f"Epoch {i} took {(t1 - t0)*1000} ms")
 
         if i % 10 == 0:
     
