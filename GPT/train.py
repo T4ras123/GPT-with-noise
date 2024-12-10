@@ -6,6 +6,7 @@ import math
 import os
 import sys
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+torch.set_float32_matmul_precision("high")
 
 
 def get_batches():
@@ -167,8 +168,6 @@ if __name__ == "__main__":
     import time
 
     scaler = GradScaler("cuda")
-
-    torch.set_float32_matmul_precision("high")
     
     config = GPTConfig()
     model = GPT(config).to(device)
