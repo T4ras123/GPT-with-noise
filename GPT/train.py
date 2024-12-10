@@ -164,6 +164,7 @@ if __name__ == "__main__":
         x, y = x.to(device), y.to(device)
         
         optimizer.zero_grad()
+        
         with autocast("cuda"):
             logits, loss = model(x, y)
                     
@@ -175,3 +176,4 @@ if __name__ == "__main__":
             print(loss.item())
 
     torch.save(model.state_dict(), model_dict_path)
+    print("Model saved to", model_dict_path)
