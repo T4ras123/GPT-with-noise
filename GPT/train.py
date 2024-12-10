@@ -3,7 +3,16 @@ from dataclasses import dataclass
 import torch.nn as nn
 from torch.nn import functional as F
 import math
+import os
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+data_path = os.path.join(os.path.dirname(__file__), 'data', 'TinyStories-train.txt')
+
+with open(data_path, 'r') as f:
+    data = f.read()
+
+def get_batches():
+    pass
 
 @dataclass
 class GPTConfig:
@@ -12,6 +21,7 @@ class GPTConfig:
 	n_layer: int = 12
 	n_head: int = 12
 	n_embd: int = 768
+
 
 class SelfAttention(nn.Module):
     def __init__(self, config: GPTConfig):
@@ -36,6 +46,7 @@ class SelfAttention(nn.Module):
         y = att @ v
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         return self.c_proj(y)
+
 
 class Block(nn.Module):
 	def __init__(self, config: GPTConfig):
@@ -74,7 +85,7 @@ class GPT(nn.Module):
         ))
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
-    def forward(self, idx):
+    def forward(self, idx, targets=None):
         B, T = idx.size()
         assert T <= self.config.block_size 
         pos = torch.arange(T, dtype=torch.long, device=idx.device)
@@ -85,7 +96,12 @@ class GPT(nn.Module):
             x = block(x)
         x = self.transformer['ln_f'](x)
         logits = self.lm_head(x)
-        return logits
+        
+        if targets is not None:
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+        else: 
+            loss = None
+        return logits, loss
   
     def generate(self, x: torch.Tensor, max_len: int = 100) -> torch.Tensor:
         for _ in range(max_len):
@@ -102,15 +118,14 @@ model = GPT(config).to(device)
 
 import tiktoken
 enc = tiktoken.get_encoding('gpt2')
-tokens = enc.encode('Hello, i\'m a language model,')
-tokens = torch.tensor(tokens, dtype=torch.long, device=device)
-tokens = torch.unsqueeze(tokens, 0).repeat(num_return_sequences, 1)
+tokens = enc.encode(data)
+print(f"Number of tokens: {len(tokens)}")
 x = tokens.to(device)
 
 
 while x.size(1) < max_len:
     with torch.no_grad():
-        logits = model(x)
+        logits, loss = model(x, y)
         logits = logits[:, -1, :]
         probs = F.softmax(logits, dim=-1)
         topk_probs, topk_indices = torch.topk(probs, 5, dim=-1)
