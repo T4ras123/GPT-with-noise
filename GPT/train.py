@@ -18,7 +18,7 @@ class GPTConfig:
     n_layer: int = 12
     n_head: int = 12
     n_embd: int = 768
-    batch_size: int = 2 
+    batch_size: int = 4
 
 
 class SelfAttention(nn.Module):
@@ -83,6 +83,8 @@ class GPT(nn.Module):
         ))
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
+        self.transformer.wte.weight = self.lm_head.weight
+
     def forward(self, idx, targets=None):
         B, T = idx.size()
         assert T <= self.config.block_size 
@@ -143,11 +145,6 @@ class DataLoaderLite:
         return x, y 
         
 if __name__ == "__main__":
-    
-    from torch import autocast
-    from torch.amp import GradScaler
-
-    scaler = GradScaler("cuda")
 
     config = GPTConfig()
     model = GPT(config).to(device)
@@ -155,25 +152,17 @@ if __name__ == "__main__":
 
     model_dict_path = os.path.join(os.path.dirname(__file__), "model.ptl")
 
-    torch.cuda.empty_cache()
-
     optimizer = torch.optim.AdamW(model.parameters(), lr=6e-4)
 
     for i in range(100):
         x, y = train_loader.next_batch()
         x, y = x.to(device), y.to(device)
-        
         optimizer.zero_grad()
-        
-        with autocast("cuda"):
-            logits, loss = model(x, y)
-                    
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-
+        logits, loss = model(x, y)
+        loss.backward()
+        optimizer.step()
         if i % 10 == 0:
+    
             print(loss.item())
 
     torch.save(model.state_dict(), model_dict_path)
-    print("Model saved to", model_dict_path)
