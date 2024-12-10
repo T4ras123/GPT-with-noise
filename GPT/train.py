@@ -168,6 +168,8 @@ if __name__ == "__main__":
     
     config = GPTConfig()
     model = GPT(config).to(device)
+    model = torch.compile(model)
+    
     train_loader = DataLoaderLite(config.batch_size, config.block_size)
 
     model_dict_path = os.path.join(os.path.dirname(__file__), "model.ptl")
