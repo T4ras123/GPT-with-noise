@@ -188,7 +188,7 @@ if __name__ == "__main__":
         scaler.update()
         t1 = time.time()
         torch.cuda.syncronize()
-        print(f"Epoch {i} took {t1 - t0} seconds")
+        print(f"Epoch {i} took {(t1 - t0)*1000} seconds")
 
         if i % 10 == 0:
     
