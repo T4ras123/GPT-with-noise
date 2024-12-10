@@ -164,13 +164,13 @@ if __name__ == "__main__":
         x, y = x.to(device), y.to(device)
         
         optimizer.zero_grad()
-        with autocast():
+        with autocast("cuda"):
             logits, loss = model(x, y)
                     
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
-        
+
         if i % 10 == 0:
             print(loss.item())
 
