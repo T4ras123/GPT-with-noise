@@ -185,9 +185,15 @@ if __name__ == "__main__":
 
     model_dict_path = os.path.join(os.path.dirname(__file__), "model.ptl")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=6e-4, betas=(0.9, 0.95), eps=1e-8)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=6e-4, betas=(0.9, 0.95), eps=1e-8)\
+        
+    # Calculate number of parameters
+    num_params = sum(p.numel() for p in model.parameters())
+    print(f"Number of parameters: {num_params}")
 
     for step in range(max_steps):
+        
+        
 
         t0 = time.time()
         x, y = train_loader.next_batch()
