@@ -162,12 +162,14 @@ if __name__ == "__main__":
     import time
     
     config = GPTConfig(vocab_size=50304)
+    
     model = GPT(config).to(device)    
+    
     train_loader = DataLoaderLite(config.batch_size, config.block_size)
 
     model_dict_path = os.path.join(os.path.dirname(__file__), "model.ptl")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=6e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=6e-4, betas=(0.9, 0.95), eps=1e-8)
 
     for i in range(100):
 
@@ -176,11 +178,13 @@ if __name__ == "__main__":
         x, y = x.to(device), y.to(device)
         with autocast("cuda", dtype=torch.bfloat16):
             logits, loss = model(x, y)
+            
         loss.backward()
+        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
         t1 = time.time()
         torch.cuda.synchronize()
-        print(f"Epoch {i} took {(t1 - t0)*1000} ms")
+        print(f"Step {i} | Loss: {loss.item()} | Norm: {norm:.4f} | Time: {(t1 - t0)*1000}ms")
 
         if i % 10 == 0:
     
