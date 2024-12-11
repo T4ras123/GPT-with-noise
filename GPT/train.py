@@ -135,6 +135,8 @@ class GPT(nn.Module):
         num_decay_params = sum(p.numel() for p in decay_params)
         num_non_decay_params = sum(p.numel() for p in non_decay_params)
 
+        print(f"Number of parameters: {num_decay_params} (decay) + {num_non_decay_params} (no decay)")
+
         fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
         use_fused = fused_available and 'cuda' in device
 
