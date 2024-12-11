@@ -5,7 +5,7 @@ from torch.nn import functional as F
 import math
 import os
 import sys
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = "cuda" if torch.cuda.is_available() else "cpu"
 torch.set_float32_matmul_precision("high")
 import inspect
 
