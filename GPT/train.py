@@ -5,9 +5,10 @@ from torch.nn import functional as F
 import math
 import os
 import sys
-device = "cuda" if torch.cuda.is_available() else "cpu"
-torch.set_float32_matmul_precision("high")
 import inspect
+import tiktoken
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+torch.set_float32_matmul_precision("high")
 
 
 @dataclass
@@ -17,7 +18,7 @@ class GPTConfig:
     n_layer: int = 12
     n_head: int = 12
     n_embd: int = 768
-    batch_size: int = 3
+    batch_size: int = 2
 
 
 class SelfAttention(nn.Module):
@@ -145,9 +146,6 @@ class GPT(nn.Module):
         return optimizer
 
 
-import tiktoken
-
-
 class DataLoaderLite:
     def __init__(self, B, T):
         self.B = B
@@ -177,6 +175,7 @@ class DataLoaderLite:
             self.current = 0
 
         return x, y 
+
     
 def get_lr(it):
     if it < warmup_steps:
@@ -187,6 +186,7 @@ def get_lr(it):
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1 + math.cos(math.pi * decay_ratio))
     return min_lr + coeff * (max_lr - min_lr)
+
             
 if __name__ == "__main__":
 
@@ -197,9 +197,16 @@ if __name__ == "__main__":
     max_lr = 6e-4
     min_lr = 0.1 * max_lr    
     warmup_steps = 10
-    
-    
+
     config = GPTConfig(vocab_size=50304)
+
+    total_batch_size = 524288
+    B = config.batch_size
+    T = config.block_size
+
+    assert total_batch_size % (B * T) == 0
+    grad_accum_steps = total_batch_size // (B * T)
+
     
     model = GPT(config).to(device)    
     
@@ -213,18 +220,27 @@ if __name__ == "__main__":
     num_params = sum(p.numel() for p in model.parameters())
     print(f"Number of parameters: {num_params}")
 
+    loss_accum = 0.0
+
     for step in range(max_steps):
         
-        
+        optimizer.zero_grad()
 
         t0 = time.time()
-        x, y = train_loader.next_batch()
-        x, y = x.to(device), y.to(device)
-        with autocast("cuda", dtype=torch.bfloat16):
-            logits, loss = model(x, y)
-            
-        loss.backward()
+
+        for mikro_step in range(grad_accum_steps):
+        
+            x, y = train_loader.next_batch()
+            x, y = x.to(device), y.to(device)
+            with autocast("cuda", dtype=torch.bfloat16):
+                logits, loss = model(x, y)
+
+            loss = loss / grad_accum_steps
+            loss_accum += loss.detach().item()
+            loss.backward()
+
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
         lr = get_lr(step)
         
         for param_group in optimizer.param_groups:
@@ -234,7 +250,7 @@ if __name__ == "__main__":
         torch.cuda.synchronize()
 
         t1 = time.time()
-        print(f"Step {step} | Loss: {loss.item():.4f} | lr {lr:.6f} | Norm: {norm:.4f} | Time: {(t1 - t0)*1000:.4f}ms")
+        print(f"Step {step} | Loss: {loss_accum.item():.4f} | lr {lr:.6f} | Norm: {norm:.4f} | Time: {(t1 - t0)*1000:.4f}ms")
 
 
     torch.save(model.state_dict(), model_dict_path)
