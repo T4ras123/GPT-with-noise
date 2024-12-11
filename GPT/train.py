@@ -155,11 +155,27 @@ class DataLoaderLite:
             self.current = 0
 
         return x, y 
-        
+    
+def get_lr(it):
+    if it < warmup_steps:
+        return max_lr * (it+1) / warmup_steps
+    elif it > max_steps:
+        return min_lr
+    decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
+    assert 0 <= decay_ratio <= 1
+    coeff = 0.5 * (1 + math.cos(math.pi * decay_ratio))
+    return min_lr + coeff * (max_lr - min_lr)
+            
 if __name__ == "__main__":
 
     from torch import autocast
     import time
+    
+    max_steps = 100
+    max_lr = 6e-4
+    min_lr = 0.1 * max_lr    
+    warmup_steps = 10
+    
     
     config = GPTConfig(vocab_size=50304)
     
@@ -171,7 +187,7 @@ if __name__ == "__main__":
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=6e-4, betas=(0.9, 0.95), eps=1e-8)
 
-    for i in range(100):
+    for step in range(max_steps):
 
         t0 = time.time()
         x, y = train_loader.next_batch()
@@ -181,13 +197,15 @@ if __name__ == "__main__":
             
         loss.backward()
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        lr = get_lr(step)
+        
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+            
         optimizer.step()
         t1 = time.time()
         torch.cuda.synchronize()
-        print(f"Step {i} | Loss: {loss.item()} | Norm: {norm:.4f} | Time: {(t1 - t0)*1000}ms")
+        print(f"Step {step} | Loss: {loss.item()} | Norm: {norm:.4f} | Time: {(t1 - t0)*1000:.4f}ms")
 
-        if i % 10 == 0:
-    
-            print(loss.item())
 
     torch.save(model.state_dict(), model_dict_path)
