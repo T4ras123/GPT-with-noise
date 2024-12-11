@@ -122,6 +122,25 @@ class GPT(nn.Module):
             x = torch.cat([x, next_token], dim=1)
         return x
 
+    def configure_optimizers(self, weight_decay, learning_rate, device):
+        param_dict = {pn: p for pn, p in self.named_parameters()}
+        param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
+
+        decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
+        non_decay_params = [p for n, p in param_dict.items() if p.dim() < 2]
+        optim_groups = [
+                {"params": decay_params, "weight_decay": weight_decay},
+                {"params": non_decay_params, "weight_decay": 0.0},
+        ]
+        num_decay_params = sum(p.numel() for p in decay_params)
+        num_non_decay_params = sum(p.numel() for p in non_decay_params)
+
+        fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
+        use_fused = fused_available and 'cuda' in device
+
+        optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=(0.9, 0.95), eps=1e-8, fused = use_fused)
+        return optimizer
+
 
 import tiktoken
 
@@ -185,8 +204,8 @@ if __name__ == "__main__":
 
     model_dict_path = os.path.join(os.path.dirname(__file__), "model.ptl")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=6e-4, betas=(0.9, 0.95), eps=1e-8)\
-        
+    optimizer = model.configure_optimizers(0.1, 6e-4, device)
+
     # Calculate number of parameters
     num_params = sum(p.numel() for p in model.parameters())
     print(f"Number of parameters: {num_params}")
