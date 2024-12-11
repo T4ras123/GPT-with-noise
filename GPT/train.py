@@ -205,7 +205,7 @@ if __name__ == "__main__":
         optimizer.step()
         t1 = time.time()
         torch.cuda.synchronize()
-        print(f"Step {step} | Loss: {loss.item()} | Norm: {norm:.4f} | Time: {(t1 - t0)*1000:.4f}ms")
+        print(f"Step {step} | Loss: {loss.item()} | lr {lr} | Norm: {norm:.4f} | Time: {(t1 - t0)*1000:.4f}ms")
 
 
     torch.save(model.state_dict(), model_dict_path)
