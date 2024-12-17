@@ -7,6 +7,7 @@ import os
 import sys
 import inspect
 import tiktoken
+from opacus import PrivacyEngine
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 torch.set_float32_matmul_precision("high")
 
@@ -187,6 +188,10 @@ def get_lr(it):
     coeff = 0.5 * (1 + math.cos(math.pi * decay_ratio))
     return min_lr + coeff * (max_lr - min_lr)
 
+def add_noise_to_input(input_ids: torch.Tensor, noise: float=.1) -> torch.Tensor:
+    noise_tensor = torch.normal(mean=0.0, std=noise, size=input_ids.size(), device=input_ids.device)
+    return input_ids + noise_tensor
+
             
 if __name__ == "__main__":
 
@@ -215,6 +220,16 @@ if __name__ == "__main__":
     model_dict_path = os.path.join(os.path.dirname(__file__), "model.ptl")
 
     optimizer = model.configure_optimizers(0.1, 6e-4, device)
+    
+    privacy_engine = PrivacyEngine()
+    
+    model, optimizer, train_loader = privacy_engine.make_private(
+        module=model,
+        optimizer=optimizer,
+        data_loader=train_loader,
+        noise_multiplier=1.0,  # Adjust based on privacy requirements
+        max_grad_norm=1.0      # Clipping threshold
+    )
 
     # Calculate number of parameters
     num_params = sum(p.numel() for p in model.parameters())
