@@ -162,3 +162,4 @@ cython_debug/
 #.idea/
 GPT/data/TinyStories-train.txt
 GPT/model.ptl
+GPT/data/free-cybersecurity-ebooks-main
